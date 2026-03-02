@@ -1,0 +1,10 @@
+-- CreateTable
+CREATE TABLE "EventLog" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "type" TEXT NOT NULL,
+    "x" REAL NOT NULL,
+    "y" REAL NOT NULL,
+    "z" REAL NOT NULL,
+    "isHandled" BOOLEAN NOT NULL DEFAULT false
+);
