@@ -121,14 +121,6 @@ export default function Home() {
           >
             View History
           </Link>
-
-          {/* ปุ่ม Test (สำหรับทดสอบหน้าเว็บโดยไม่ต้องรอ MQTT) */}
-          <button
-            onClick={() => setIsFall(!isFall)}
-            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-sm font-medium"
-          >
-            Test UI Toggle
-          </button>
         </div>
       </header>
 
