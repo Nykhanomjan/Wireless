@@ -34,7 +34,6 @@ export default function HistoryPage() {
     fetchLogs();
   }, []);
 
-  // ฟังก์ชันจัดรูปแบบวันที่ให้สวยงาม (เช่น 12/03/2024 14:30:05)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("th-TH", {
       year: "numeric",
@@ -77,7 +76,6 @@ export default function HistoryPage() {
           </button>
         </div>
 
-        {/* Table ตารางแสดงข้อมูล */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-// 1. รับข้อมูล (POST) - ใช้ตอนบันทึกจากหน้า Dashboard
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -23,12 +22,11 @@ export async function POST(request: Request) {
   }
 }
 
-// 2. ดึงข้อมูล (GET) - ใช้ตอนแสดงหน้า History
 export async function GET() {
   try {
     const logs = await prisma.eventLog.findMany({
-      orderBy: { timestamp: "desc" }, // เรียงจาก ล่าสุด -> เก่าสุด
-      take: 100, // ดึงมาแค่ 100 รายการล่าสุด (กันหน้าเว็บอืด)
+      orderBy: { timestamp: "desc" },
+      take: 100,
     });
     return NextResponse.json(logs);
   } catch (error) {

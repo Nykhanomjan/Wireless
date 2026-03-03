@@ -1,149 +1,105 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react"; // เพิ่ม useRef
-import mqtt from "mqtt";
+import { useMqtt } from "./context/MqttContext";
 import StatusCard from "./components/StatusCard";
 import SensorChart from "./components/SensorChart";
 import Link from "next/link";
-
-// *** ตั้งค่า MQTT ***
-const MQTT_BROKER = "ws://broker.hivemq.com:8000/mqtt";
-const MQTT_TOPIC = "my_home/fall_detection/data";
+import { Activity, History, ShieldCheck, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
-  const fallTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [isFall, setIsFall] = useState(false);
-  const [sensorData, setSensorData] = useState<any[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState("Disconnected");
-
-  // ใช้ useRef เพื่อจำเวลาล่าสุดที่แจ้งเตือน (ค่าจะไม่หายและไม่อ้างอิง State เก่า)
-  const lastAlertTimeRef = useRef(0);
+  const { isFall, sensorData, connectionStatus } = useMqtt();
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    console.log("Connecting to MQTT...");
-
-    const client = mqtt.connect(MQTT_BROKER);
-
-    client.on("connect", () => {
-      console.log("Connected to MQTT Broker");
-      setConnectionStatus("Connected");
-      client.subscribe(MQTT_TOPIC);
-    });
-
-    client.on("message", (topic, message) => {
-      if (topic === MQTT_TOPIC) {
-        const payload = JSON.parse(message.toString());
-
-        // 1. แก้การเช็คสถานะล้ม (จาก Python ส่งมาเป็น string "FALL" หรือ "false")
-        const isFallDetected = payload.status === "FALL";
-        if (isFallDetected) {
-          setIsFall(true);
-
-          // ถ้ามีการจับเวลาอยู่ก่อนหน้า (ล้มซ้ำ) ให้ยกเลิกอันเก่าแล้วเริ่มนับใหม่
-          if (fallTimerRef.current) {
-            clearTimeout(fallTimerRef.current);
-          }
-
-          // สั่งให้ display ค้างไว้ แล้วค่อยปิดหลังจาก 10 วินาที (10000 ms)
-          fallTimerRef.current = setTimeout(() => {
-            setIsFall(false);
-            fallTimerRef.current = null;
-          }, 10000);
-        }
-
-        // -------------------------------------------------------
-        // ส่วนบันทึก Log ลง Database
-        // -------------------------------------------------------
-        if (isFallDetected) {
-          const now = Date.now();
-          if (now - lastAlertTimeRef.current > 5000) {
-            fetch("/api/logs", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "FALL DETECTED",
-                // 2. แก้การดึงค่า XYZ (ต้องเจาะเข้าไปใน object "acc")
-                x: payload.acc.x,
-                y: payload.acc.y,
-                z: payload.acc.z,
-              }),
-            })
-              .then(() => console.log("✅ Log saved"))
-              .catch((err) => console.error("❌ Save failed:", err));
-
-            lastAlertTimeRef.current = now;
-          }
-        }
-
-        // -------------------------------------------------------
-        // 3. แก้การดึงค่าลงกราฟ (เจาะเข้า object "acc" เหมือนกัน)
-        // -------------------------------------------------------
-        const nowTime = new Date();
-        const timeStr = nowTime.toLocaleTimeString("th-TH", { hour12: false });
-
-        const newPoint = {
-          time: timeStr,
-          x: payload.acc.x, // แก้ตรงนี้
-          y: payload.acc.y, // แก้ตรงนี้
-          z: payload.acc.z, // แก้ตรงนี้
-        };
-
-        setSensorData((prev) => {
-          const newData = [...prev, newPoint];
-          if (newData.length > 20) return newData.slice(newData.length - 20);
-          return newData;
-        });
-      }
-    });
-
-    // Cleanup function
-    return () => {
-      if (client) client.end();
-      // ล้าง Timer เมื่อ Component ถูกถอดออก
-      if (fallTimerRef.current) clearTimeout(fallTimerRef.current);
-    };
-  }, []); // dependency array ว่าง เพื่อให้ connect แค่ครั้งเดียวตอนเปิดหน้าเว็บ
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <main className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
-      <header className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">
-            Fall Detection Dashboard
-          </h1>
-          <p className="text-slate-500">
-            System Status:{" "}
-            <span
-              className={
-                connectionStatus === "Connected"
-                  ? "text-green-600 font-bold"
-                  : "text-red-500"
-              }
-            >
-              {connectionStatus}
-            </span>
-          </p>
-        </div>
+    <main
+      className={`min-h-screen transition-colors duration-500 ${isFall ? "bg-red-50" : "bg-slate-50"} p-4 md:p-8`}
+    >
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="w-8 h-8 text-indigo-600" />
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                FallGuard Security
+              </h1>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-full">
+                <span
+                  className={`w-2 h-2 rounded-full ${connectionStatus === "Connected" ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}
+                ></span>
+                <span className="font-medium text-slate-600">
+                  {connectionStatus}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <Clock className="w-4 h-4" />
+                <span>{currentTime.toLocaleTimeString("th-TH")}</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="flex gap-3">
-          {/* ปุ่มไปหน้า History */}
           <Link
             href="/history"
-            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium flex items-center gap-2"
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 font-medium"
           >
-            View History
+            <History className="w-4 h-4" />
+            View History Logs
           </Link>
-        </div>
-      </header>
+        </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1 space-y-6">
-          <StatusCard isFall={isFall} />
-          {/* คุณสามารถใส่ Device Info เพิ่มตรงนี้ได้ตามเดิม */}
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white p-1 rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+              <StatusCard isFall={isFall} />
+            </div>
 
-        <div className="md:col-span-2">
-          <SensorChart data={sensorData} />
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Activity className="w-4 h-4" /> Live Metrics
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">X-Axis</p>
+                  <p className="font-mono font-bold text-slate-700">
+                    {sensorData[sensorData.length - 1]?.x?.toFixed(2) || "0.00"}
+                  </p>
+                </div>
+                <div className="text-center border-x border-slate-100">
+                  <p className="text-xs text-slate-400 mb-1">Y-Axis</p>
+                  <p className="font-mono font-bold text-slate-700">
+                    {sensorData[sensorData.length - 1]?.y?.toFixed(2) || "0.00"}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-slate-400 mb-1">Z-Axis</p>
+                  <p className="font-mono font-bold text-slate-700">
+                    {sensorData[sensorData.length - 1]?.z?.toFixed(2) || "0.00"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-slate-800 text-lg">
+                Accelerometer Real-time Chart
+              </h3>
+              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-bold">
+                LIVE
+              </span>
+            </div>
+            <div className="h-[400px]">
+              <SensorChart data={sensorData} />
+            </div>
+          </div>
         </div>
       </div>
     </main>
