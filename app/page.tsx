@@ -1,16 +1,25 @@
 "use client";
 
-import { useMqtt } from "./context/MqttContext";
+import { useMqtt } from "./context/MqttContext"; // ดึงข้อมูลจาก Context
 import StatusCard from "./components/StatusCard";
 import SensorChart from "./components/SensorChart";
 import Link from "next/link";
-import { Activity, History, ShieldCheck, Clock } from "lucide-react";
+import {
+  Activity,
+  History,
+  ShieldCheck,
+  Clock,
+  Thermometer,
+  RotateCcw,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  const { isFall, sensorData, connectionStatus } = useMqtt();
+  // ดึงค่าทุกอย่างมาจาก Context ตัวเดียวจบ (ห้ามมี mqtt.connect ในหน้านี้ซ้ำ!)
+  const { isFall, sensorData, latestPayload, connectionStatus } = useMqtt();
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // อันนี้เก็บไว้ได้ แค่เอาไว้โชว์เวลาปัจจุบันเฉยๆ ไม่เกี่ยวกับ MQTT
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -21,12 +30,13 @@ export default function Home() {
       className={`min-h-screen transition-colors duration-500 ${isFall ? "bg-red-50" : "bg-slate-50"} p-4 md:p-8`}
     >
       <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
         <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShieldCheck className="w-8 h-8 text-indigo-600" />
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                FallGuard Security
+                FallGuard Dashboard
               </h1>
             </div>
             <div className="flex items-center gap-3 text-sm">
@@ -38,7 +48,7 @@ export default function Home() {
                   {connectionStatus}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-slate-400">
+              <div className="flex items-center gap-1.5 text-slate-400 font-medium">
                 <Clock className="w-4 h-4" />
                 <span>{currentTime.toLocaleTimeString("th-TH")}</span>
               </div>
@@ -47,56 +57,56 @@ export default function Home() {
 
           <Link
             href="/history"
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 font-medium"
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium"
           >
-            <History className="w-4 h-4" />
-            View History Logs
+            <History className="w-4 h-4" /> View History
           </Link>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Side: Status & Sensors */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white p-1 rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <StatusCard isFall={isFall} />
+            <StatusCard isFall={isFall} />
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase mb-2 flex items-center gap-2">
+                <Thermometer className="w-4 h-4" /> Device Temp
+              </h3>
+              <p className="text-4xl font-bold text-slate-800">
+                {latestPayload?.temp?.toFixed(1) || "--.-"}°C
+              </p>
             </div>
 
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Activity className="w-4 h-4" /> Live Metrics
+              <h3 className="text-sm font-semibold text-slate-400 uppercase mb-4 flex items-center gap-2">
+                <RotateCcw className="w-4 h-4" /> Gyroscope (deg/s)
               </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-slate-400 mb-1">X-Axis</p>
-                  <p className="font-mono font-bold text-slate-700">
-                    {sensorData[sensorData.length - 1]?.x?.toFixed(2) || "0.00"}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-slate-50 p-2 rounded-xl">
+                  <p className="text-[10px] text-slate-400">X</p>
+                  <p className="font-bold text-indigo-600">
+                    {latestPayload?.gyro?.x?.toFixed(1) || "0.0"}
                   </p>
                 </div>
-                <div className="text-center border-x border-slate-100">
-                  <p className="text-xs text-slate-400 mb-1">Y-Axis</p>
-                  <p className="font-mono font-bold text-slate-700">
-                    {sensorData[sensorData.length - 1]?.y?.toFixed(2) || "0.00"}
+                <div className="bg-slate-50 p-2 rounded-xl">
+                  <p className="text-[10px] text-slate-400">Y</p>
+                  <p className="font-bold text-indigo-600">
+                    {latestPayload?.gyro?.y?.toFixed(1) || "0.0"}
                   </p>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-slate-400 mb-1">Z-Axis</p>
-                  <p className="font-mono font-bold text-slate-700">
-                    {sensorData[sensorData.length - 1]?.z?.toFixed(2) || "0.00"}
+                <div className="bg-slate-50 p-2 rounded-xl">
+                  <p className="text-[10px] text-slate-400">Z</p>
+                  <p className="font-bold text-indigo-600">
+                    {latestPayload?.gyro?.z?.toFixed(1) || "0.0"}
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Right Side: Graph */}
           <div className="lg:col-span-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-slate-800 text-lg">
-                Accelerometer Real-time Chart
-              </h3>
-              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md font-bold">
-                LIVE
-              </span>
-            </div>
-            <div className="h-[400px]">
+            <div className="h-[450px]">
               <SensorChart data={sensorData} />
             </div>
           </div>
