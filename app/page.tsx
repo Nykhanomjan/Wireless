@@ -7,10 +7,11 @@ import SensorChart from "./components/SensorChart";
 import Link from "next/link";
 
 // *** ตั้งค่า MQTT ***
-const MQTT_BROKER = "wss://broker.hivemq.com:8000/mqtt";
+const MQTT_BROKER = "ws://broker.hivemq.com:8000/mqtt";
 const MQTT_TOPIC = "my_home/fall_detection/data";
 
 export default function Home() {
+  const fallTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isFall, setIsFall] = useState(false);
   const [sensorData, setSensorData] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState("Disconnected");
@@ -35,7 +36,20 @@ export default function Home() {
 
         // 1. แก้การเช็คสถานะล้ม (จาก Python ส่งมาเป็น string "FALL" หรือ "false")
         const isFallDetected = payload.status === "FALL";
-        setIsFall(isFallDetected);
+        if (isFallDetected) {
+          setIsFall(true);
+
+          // ถ้ามีการจับเวลาอยู่ก่อนหน้า (ล้มซ้ำ) ให้ยกเลิกอันเก่าแล้วเริ่มนับใหม่
+          if (fallTimerRef.current) {
+            clearTimeout(fallTimerRef.current);
+          }
+
+          // สั่งให้ display ค้างไว้ แล้วค่อยปิดหลังจาก 10 วินาที (10000 ms)
+          fallTimerRef.current = setTimeout(() => {
+            setIsFall(false);
+            fallTimerRef.current = null;
+          }, 10000);
+        }
 
         // -------------------------------------------------------
         // ส่วนบันทึก Log ลง Database
@@ -85,6 +99,8 @@ export default function Home() {
     // Cleanup function
     return () => {
       if (client) client.end();
+      // ล้าง Timer เมื่อ Component ถูกถอดออก
+      if (fallTimerRef.current) clearTimeout(fallTimerRef.current);
     };
   }, []); // dependency array ว่าง เพื่อให้ connect แค่ครั้งเดียวตอนเปิดหน้าเว็บ
 
