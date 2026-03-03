@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // 1. รับข้อมูล (POST) - ใช้ตอนบันทึกจากหน้า Dashboard
 export async function POST(request: Request) {

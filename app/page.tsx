@@ -33,49 +33,45 @@ export default function Home() {
       if (topic === MQTT_TOPIC) {
         const payload = JSON.parse(message.toString());
 
-        // 1. อัปเดตสถานะการล้มที่หน้าจอ
-        setIsFall(payload.isFall);
+        // 1. แก้การเช็คสถานะล้ม (จาก Python ส่งมาเป็น string "FALL" หรือ "false")
+        const isFallDetected = payload.status === "FALL";
+        setIsFall(isFallDetected);
 
         // -------------------------------------------------------
-        // [ส่วนที่เพิ่ม] : ระบบบันทึก Log ลง Database
+        // ส่วนบันทึก Log ลง Database
         // -------------------------------------------------------
-        if (payload.isFall) {
+        if (isFallDetected) {
           const now = Date.now();
-          // เช็คว่าผ่านไป 5 วินาทีหรือยัง (5000ms) ป้องกันการบันทึกรัวๆ
           if (now - lastAlertTimeRef.current > 5000) {
-            // เรียก API หลังบ้านที่เราสร้างไว้
             fetch("/api/logs", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 type: "FALL DETECTED",
-                x: payload.x,
-                y: payload.y,
-                z: payload.z,
+                // 2. แก้การดึงค่า XYZ (ต้องเจาะเข้าไปใน object "acc")
+                x: payload.acc.x,
+                y: payload.acc.y,
+                z: payload.acc.z,
               }),
             })
-              .then(() => {
-                console.log("✅ Log saved to database successfully");
-              })
-              .catch((err) => {
-                console.error("❌ Failed to save log:", err);
-              });
+              .then(() => console.log("✅ Log saved"))
+              .catch((err) => console.error("❌ Save failed:", err));
 
-            // อัปเดตเวลาล่าสุดที่บันทึก
             lastAlertTimeRef.current = now;
           }
         }
-        // -------------------------------------------------------
 
-        // 2. อัปเดตกราฟ
+        // -------------------------------------------------------
+        // 3. แก้การดึงค่าลงกราฟ (เจาะเข้า object "acc" เหมือนกัน)
+        // -------------------------------------------------------
         const nowTime = new Date();
         const timeStr = nowTime.toLocaleTimeString("th-TH", { hour12: false });
 
         const newPoint = {
           time: timeStr,
-          x: payload.x,
-          y: payload.y,
-          z: payload.z,
+          x: payload.acc.x, // แก้ตรงนี้
+          y: payload.acc.y, // แก้ตรงนี้
+          z: payload.acc.z, // แก้ตรงนี้
         };
 
         setSensorData((prev) => {

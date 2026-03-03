@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCcw, AlertTriangle } from "lucide-react"; // อย่าลืม npm install lucide-react
+import { ArrowLeft, RefreshCcw, AlertTriangle } from "lucide-react";
 
 interface LogData {
   id: number;
@@ -17,7 +17,6 @@ export default function HistoryPage() {
   const [logs, setLogs] = useState<LogData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ฟังก์ชันดึงข้อมูล
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -31,7 +30,6 @@ export default function HistoryPage() {
     }
   };
 
-  // ดึงข้อมูลทันทีเมื่อเปิดหน้านี้
   useEffect(() => {
     fetchLogs();
   }, []);
@@ -87,8 +85,6 @@ export default function HistoryPage() {
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase tracking-wider">
                   <th className="p-4 font-semibold">Time</th>
                   <th className="p-4 font-semibold">Event Type</th>
-                  <th className="p-4 font-semibold">Sensor Data (X, Y, Z)</th>
-                  <th className="p-4 font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
