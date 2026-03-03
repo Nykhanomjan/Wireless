@@ -1,6 +1,6 @@
 "use client";
 
-import { useMqtt } from "./context/MqttContext"; // ดึงข้อมูลจาก Context
+import { useMqtt } from "./context/MqttContext";
 import StatusCard from "./components/StatusCard";
 import SensorChart from "./components/SensorChart";
 import Link from "next/link";
@@ -15,12 +15,15 @@ import {
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  // ดึงค่าทุกอย่างมาจาก Context ตัวเดียวจบ (ห้ามมี mqtt.connect ในหน้านี้ซ้ำ!)
   const { isFall, sensorData, latestPayload, connectionStatus } = useMqtt();
-  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // อันนี้เก็บไว้ได้ แค่เอาไว้โชว์เวลาปัจจุบันเฉยๆ ไม่เกี่ยวกับ MQTT
+  // 1. แก้ไข: เริ่มต้นค่าเป็น null เพื่อไม่ให้ Server และ Client เรนเดอร์ต่างกัน
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
   useEffect(() => {
+    // 2. แก้ไข: กำหนดเวลาทันทีที่ Component mount บน Browser
+    setCurrentTime(new Date());
+
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
@@ -30,7 +33,6 @@ export default function Home() {
       className={`min-h-screen transition-colors duration-500 ${isFall ? "bg-red-50" : "bg-slate-50"} p-4 md:p-8`}
     >
       <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
         <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -50,7 +52,12 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-1.5 text-slate-400 font-medium">
                 <Clock className="w-4 h-4" />
-                <span>{currentTime.toLocaleTimeString("th-TH")}</span>
+                {/* 3. แก้ไข: เช็คก่อนแสดงผล ถ้ายังไม่มีค่าให้แสดง --:--:-- ไปก่อน */}
+                <span>
+                  {currentTime
+                    ? currentTime.toLocaleTimeString("th-TH")
+                    : "--:--:--"}
+                </span>
               </div>
             </div>
           </div>
@@ -64,7 +71,6 @@ export default function Home() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Side: Status & Sensors */}
           <div className="lg:col-span-4 space-y-6">
             <StatusCard isFall={isFall} />
 
@@ -104,7 +110,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Side: Graph */}
           <div className="lg:col-span-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <div className="h-[450px]">
               <SensorChart data={sensorData} />

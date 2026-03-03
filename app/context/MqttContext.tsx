@@ -11,11 +11,12 @@ import mqtt from "mqtt";
 
 const MQTT_BROKER = "ws://broker.hivemq.com:8000/mqtt";
 const MQTT_TOPIC = "my_home/fall_detection/data";
+const TIMEOUT_DURATION = 10000; // 10 วินาที (ถ้าไม่มีข้อมูลมาภายใน 10 วิ จะถือว่า Disconnected)
 
 interface MqttContextType {
   isFall: boolean;
-  sensorData: any[]; // ข้อมูลสำหรับกราฟ
-  latestPayload: any | null; // ข้อมูลล่าสุดทั้งหมด (รวม Gyro, Temp)
+  sensorData: any[];
+  latestPayload: any | null;
   connectionStatus: string;
 }
 
@@ -25,62 +26,81 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [isFall, setIsFall] = useState(false);
   const [sensorData, setSensorData] = useState<any[]>([]);
   const [latestPayload, setLatestPayload] = useState<any | null>(null);
+
+  // เริ่มต้นสถานะเป็น Disconnected
   const [connectionStatus, setConnectionStatus] = useState("Disconnected");
 
   const fallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastAlertTimeRef = useRef(0);
+
+  // ฟังก์ชันสำหรับเช็คการเงียบหายของข้อมูล
+  const startWatchdog = () => {
+    if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+    watchdogTimerRef.current = setTimeout(() => {
+      setConnectionStatus("Disconnected");
+    }, TIMEOUT_DURATION);
+  };
 
   useEffect(() => {
     const client = mqtt.connect(MQTT_BROKER);
 
     client.on("connect", () => {
-      setConnectionStatus("Connected");
       client.subscribe(MQTT_TOPIC);
     });
 
     client.on("message", (topic, message) => {
       if (topic === MQTT_TOPIC) {
-        const payload = JSON.parse(message.toString());
-        setLatestPayload(payload); // เก็บข้อมูลล่าสุดไว้ใช้งาน
+        // เมื่อมีข้อมูลเข้า ให้เปลี่ยนเป็น Connected ทันที
+        setConnectionStatus("Connected");
+        startWatchdog(); // เริ่มนับถอยหลังใหม่ทุกครั้งที่มีข้อมูลเข้า
 
-        const isFallDetected = payload.status === "FALL";
+        try {
+          const payload = JSON.parse(message.toString());
+          setLatestPayload(payload);
 
-        if (isFallDetected) {
-          setIsFall(true);
-          if (fallTimerRef.current) clearTimeout(fallTimerRef.current);
-          fallTimerRef.current = setTimeout(() => {
-            setIsFall(false);
-            fallTimerRef.current = null;
-          }, 10000);
+          const isFallDetected = payload.status === "FALL";
 
-          const now = Date.now();
-          if (now - lastAlertTimeRef.current > 5000) {
-            fetch("/api/logs", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "FALL DETECTED",
-                x: payload.acc.x,
-                y: payload.acc.y,
-                z: payload.acc.z,
-              }),
-            });
-            lastAlertTimeRef.current = now;
+          if (isFallDetected) {
+            setIsFall(true);
+            if (fallTimerRef.current) clearTimeout(fallTimerRef.current);
+            fallTimerRef.current = setTimeout(() => {
+              setIsFall(false);
+              fallTimerRef.current = null;
+            }, 10000);
+
+            const now = Date.now();
+            if (now - lastAlertTimeRef.current > 5000) {
+              fetch("/api/logs", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: "FALL DETECTED",
+                  x: payload.acc.x,
+                  y: payload.acc.y,
+                  z: payload.acc.z,
+                }),
+              }).catch((err) => console.error("Log error:", err));
+              lastAlertTimeRef.current = now;
+            }
           }
-        }
 
-        const newPoint = {
-          time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
-          x: payload.acc.x,
-          y: payload.acc.y,
-          z: payload.acc.z,
-        };
-        setSensorData((prev) => [...prev, newPoint].slice(-20));
+          const newPoint = {
+            time: new Date().toLocaleTimeString("th-TH", { hour12: false }),
+            x: payload.acc.x,
+            y: payload.acc.y,
+            z: payload.acc.z,
+          };
+          setSensorData((prev) => [...prev, newPoint].slice(-20));
+        } catch (e) {
+          console.error("Payload error:", e);
+        }
       }
     });
 
     return () => {
       if (client) client.end();
+      if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
     };
   }, []);
 
