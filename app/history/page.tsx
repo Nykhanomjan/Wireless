@@ -85,6 +85,9 @@ export default function HistoryPage() {
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase tracking-wider">
                   <th className="p-4 font-semibold">Time</th>
                   <th className="p-4 font-semibold">Event Type</th>
+                  {/* เพิ่ม 2 บรรทัดนี้ครับ เพื่อให้ตรงกับข้อมูลด้านล่าง */}
+                  <th className="p-4 font-semibold">Sensor Data</th>
+                  <th className="p-4 font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
